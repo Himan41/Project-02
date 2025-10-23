@@ -3,42 +3,93 @@ name: Build Flet APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 180
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Upgrade pip and install wheel
         run: |
-          python -m pip install --upgrade pip
-          pip install flet buildozer cython
+          python -m pip install --upgrade pip setuptools wheel
 
-      - name: Prepare buildozer
-        run: |
-          buildozer init
-          sed -i 's/package\.name = myapp/package.name = flet_app/g' buildozer.spec
-          sed -i 's/package\.domain = org\.test/package.domain = org.fletapp/g' buildozer.spec
-          sed -i 's/source\.dir = .*/source.dir = ./' buildozer.spec
-          sed -i 's/source\.include_exts = py, png, jpg, kv, atlas/source.include_exts = py, png, jpg, kv, atlas, json/' buildozer.spec
-          sed -i 's/requirements = python3/requirements = python3,flet/' buildozer.spec
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-      - name: Build APK
+      - name: Install Python dependencies (or fallback to flet)
         run: |
-          buildozer android debug
-          mkdir -p output
-          cp bin/*.apk output/
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install flet
+          fi
+
+      - name: Setup Java (required for Android build tools)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 33
+          # install-build-tools: 33.0.2   # uncomment and adjust when you need a specific build-tools version
+
+      - name: Add Android SDK tools to env (optional)
+        run: |
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}" >> $GITHUB_ENV
+          echo "PATH=$PATH:$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_ENV
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'   # or specify exact version like '3.22.2' if needed
+
+      - name: Accept Android licenses (safety)
+        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Show environment info (debug)
+        run: |
+          python --version
+          pip show flet || true
+          flutter --version
+          java -version
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls -la
+
+      - name: Build APK (Flet)
+        env:
+          # زيادة الذاكرة لو احتاج Flutter عملية أطول، إن لزم يمكن تعديل متغيرات JVM هنا
+          _JAVA_OPTIONS: "-Xmx4096m"
+        run: |
+          # خيار --release للحزمة النهائية، جرب بدون --release إذا أردت debug
+          flet build apk --release -v || (echo "flet build failed — see logs" && exit 1)
+
+      - name: Find generated APKs
+        run: |
+          echo "looking for *.apk files..."
+          find . -type f -name "*.apk" -print || true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flet-apk
-          path: output/*.apk
+          name: flet-apks
+          path: |
+            **/*.apk
+            build/**/*.apk
