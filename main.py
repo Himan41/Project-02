@@ -20,7 +20,6 @@ def main(page: Page):
         width=300,
     )
 
-    # زر الدخول
     login_btn = ElevatedButton(text="Login")
     
     # عارض الصور
