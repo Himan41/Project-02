@@ -31,7 +31,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install Python dependencies (or fallback to flet)
+      - name: Install Flet or requirements.txt
         run: |
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
@@ -39,57 +39,40 @@ jobs:
             pip install flet
           fi
 
-      - name: Setup Java (required for Android build tools)
+      - name: Set up Java (needed for Android build)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          api-level: 33
-          # install-build-tools: 33.0.2   # uncomment and adjust when you need a specific build-tools version
-
-      - name: Add Android SDK tools to env (optional)
-        run: |
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}" >> $GITHUB_ENV
-          echo "PATH=$PATH:$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_ENV
-
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'   # or specify exact version like '3.22.2' if needed
+          flutter-version: 'stable'
 
-      - name: Accept Android licenses (safety)
-        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses || true
 
-      - name: Show environment info (debug)
+      - name: Check Environment
         run: |
           python --version
           pip show flet || true
           flutter --version
           java -version
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-          ls -la
 
-      - name: Build APK (Flet)
+      - name: Build APK
         env:
-          # زيادة الذاكرة لو احتاج Flutter عملية أطول، إن لزم يمكن تعديل متغيرات JVM هنا
           _JAVA_OPTIONS: "-Xmx4096m"
         run: |
-          # خيار --release للحزمة النهائية، جرب بدون --release إذا أردت debug
-          flet build apk --release -v || (echo "flet build failed — see logs" && exit 1)
+          flet build apk --release -v
 
-      - name: Find generated APKs
-        run: |
-          echo "looking for *.apk files..."
-          find . -type f -name "*.apk" -print || true
+      - name: List APK files
+        run: find . -type f -name "*.apk" -print || true
 
-      - name: Upload APK artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flet-apks
+          name: Flet-APK
           path: |
             **/*.apk
             build/**/*.apk
