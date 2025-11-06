@@ -1,74 +1,50 @@
-from flet import (
-    Page, TextField, ElevatedButton, Image, Column,
-    FilePicker, FilePickerResultEvent, Container, Text, alignment, app
-)
-
-PASSWORD = "1234"  # غيّرها إلى كلمة السر التي تريدها
+ from flet import *
 
 def main(page: Page):
-    page.title = "عارض الصور"
     page.bgcolor = "cyan"
     page.scroll = "auto"
-    page.horizontal_alignment = "center"
     page.vertical_alignment = "center"
+    page.horizontal_alignment = "center"
 
-    # مربع كلمة السر
-    password_input = TextField(
-        label="Enter Password",
-        password=True,
-        can_reveal_password=True,
-        width=300,
+    text_field = TextField(
+        label="Email",
+        helper_text="example@gmail.com",
+        color="green",
+        bgcolor="white",
+        icon=Icons.EMAIL,
+        width=350
     )
 
-    login_btn = ElevatedButton(text="Login")
-    
-    # عارض الصور
-    images_column = Column(scroll="auto")
+    t2 = TextField(
+        label="Password",
+        helper_text="Enter your password",
+        color="green",
+        bgcolor="white",
+        icon=Icons.LOCK,
+        width=350,
+        password=True,
+        can_reveal_password=True
+    )
 
-    # أداة رفع الملفات (الصور)
-    file_picker = FilePicker()
+    # ✅ استخدام الخاصية الصحيحة image=
+    container = Container(
+        content=Column(
+            [
+                text_field,
+                t2
+            ],
+            alignment="center",
+            horizontal_alignment="center",
+        ),
+        width=page.width,
+        height=page.height,
+        image=Image(  # هنا نضع صورة الخلفية
+            src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTDWEH2kRbAwXOu00VPkP7OWL1N7aDAbOmh9xtvkNIc4YRXKD0q8HjfR3Wr&s=10",
+            fit=ImageFit.COVER
+        ),
+    )
 
-    def login(e):
-        if password_input.value == PASSWORD:
-            page.clean()
-            page.add(
-                Container(
-                    content=Column(
-                        [
-                            Text("ارفع صورك من هنا:", color="white"),
-                            ElevatedButton(
-                                text="اختر الصور",
-                                icon="upload",
-                                on_click=lambda _: file_picker.pick_files(
-                                    allow_multiple=True,
-                                    file_type="image"
-                                ),
-                            ),
-                            images_column
-                        ]
-                    ),
-                    alignment=alignment.center
-                )
-            )
-            page.update()
-        else:
-            password_input.error_text = "كلمة السر غير صحيحة"
-            page.update()
-
-    # عند اختيار الصور
-    def on_files_selected(e: FilePickerResultEvent):
-        if e.files:
-            for f in e.files:
-                images_column.controls.append(
-                    Image(src=f.path, width=300, height=300, fit="contain")
-                )
-            page.update()
-
-    file_picker.on_result = on_files_selected
-    page.overlay.append(file_picker)
-    login_btn.on_click = login
-
-    page.add(password_input, login_btn)
+    page.add(container)
+    page.update()
 
 app(target=main)
-            
